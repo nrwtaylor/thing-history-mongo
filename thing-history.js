@@ -85,9 +85,9 @@ const snapshotPathnames = readJsonFile(
 the_interval = interval_milliseconds;
 
 const intervals = [
-  { milliseconds: the_interval, text: "" },
-  { milliseconds: 10000, text: "10s", comment: "test" },
-  { milliseconds: 30000, text: "30s", comment: "test" },
+//  { milliseconds: the_interval, text: "" },
+//  { milliseconds: 10000, text: "10s", comment: "test" },
+//  { milliseconds: 30000, text: "30s", comment: "test" },
   { milliseconds: 60000, text: "1m" },
   { milliseconds: 120000, text: "2m" },
   { milliseconds: 600000, text: "10m" },
@@ -234,7 +234,7 @@ function setHistory(slug, history, uuid) {
     ...arr,
   });
 
-  if (true) {
+  if (false) {
     fs.writeFile(
       keyPathname + slug + ".json",
       snapshot,

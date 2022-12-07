@@ -12,14 +12,28 @@ const axios = require("axios");
 const datagrams = [{}];
 
 // 14 November 2022
-console.log("thing-history 1.0.1 15 November 2022");
+console.log("thing-history-memcached-mongo 1.0.0 6 December 2022");
+
+const fileFlag = false;
+const urlFlag = true;
 
 // And then quiet.
-console.log = function() {}
+//console.log = function() {}
 
 /*
 Standard stack stuff above.
 */
+
+const { MongoClient } = require("mongodb");
+
+var url = "mongodb://localhost:27017/stack";
+const client = new MongoClient(url);
+const dbName = "variables";
+
+client.connect();
+
+const db = client.db(dbName);
+const collection = db.collection("slugs");
 
 var hosts = process.env.STATIONS.split(" ");
 var channel = process.env.CHANNEL;
@@ -36,22 +50,19 @@ var to = "history";
 const keyPathname = process.env.KEY_PATHNAME;
 const snapshotPathnames = process.env.SNAPSHOT_PATHNAMES.split(",");
 
-
 the_interval = interval_milliseconds;
 the_interval_1 = 120000;
 the_interval_2 = 240000;
 
 const intervals = [
-{milliseconds:the_interval, text:''},
-{milliseconds:60000, text:'1m'},
-{milliseconds:120000, text:'2m'},
-{milliseconds:600000, text:'10m'},
-{milliseconds:900000, text:'15m'},
-{milliseconds:1800000, text:'30m'},
-{milliseconds:3600000, text:'1h'},
-
+  { milliseconds: the_interval, text: "" },
+  { milliseconds: 60000, text: "1m" },
+  { milliseconds: 120000, text: "2m" },
+  { milliseconds: 600000, text: "10m" },
+  { milliseconds: 900000, text: "15m" },
+  { milliseconds: 1800000, text: "30m" },
+  { milliseconds: 3600000, text: "1h" },
 ];
-
 
 interval = setInterval(function () {
   // do your stuff here
@@ -77,7 +88,6 @@ interval = setInterval(function () {
   });
   currentPollInterval = the_interval;
 }, intervals[0].milliseconds);
-
 
 interval1 = setInterval(function () {
   // do your stuff here
@@ -129,7 +139,6 @@ interval2 = setInterval(function () {
   currentPollInterval = the_interval;
 }, intervals[2].milliseconds);
 
-
 interval3 = setInterval(function () {
   // do your stuff here
   console.log("hosts", hosts);
@@ -180,7 +189,6 @@ interval4 = setInterval(function () {
   currentPollInterval = the_interval;
 }, intervals[4].milliseconds);
 
-
 interval5 = setInterval(function () {
   // do your stuff here
   console.log("hosts", hosts);
@@ -205,7 +213,6 @@ interval5 = setInterval(function () {
   });
   currentPollInterval = the_interval;
 }, intervals[5].milliseconds);
-
 
 interval6 = setInterval(function () {
   // do your stuff here
@@ -232,25 +239,21 @@ interval6 = setInterval(function () {
   currentPollInterval = the_interval;
 }, intervals[6].milliseconds);
 
-
-
-
 function handleLine(input) {
   var agent_input = "snapshot";
 
   var line = "";
-  if (!((input === null) || (input === ""))) {
-     line = "-" + input; 
+  if (!(input === null || input === "")) {
+    line = "-" + input;
   }
 
-//  if (input.text) {line = input.text === "" ? "" : "-"+input.text;}
-
+  //  if (input.text) {line = input.text === "" ? "" : "-"+input.text;}
 
   const timestamp = new Date();
   const utc = timestamp.toISOString();
   try {
     const promiseArray = snapshotPathnames.map((snapshotPathname) => {
-      return readFile(snapshotPathname);
+      return readUrl(snapshotPathname);
     });
 
     const readStartTime = new Date();
@@ -259,56 +262,61 @@ function handleLine(input) {
       console.log("Read file in", readRunTime, "ms.");
 
       const data = promises[0];
-      const data2 = promises[1];
-      const data3 = promises[2];
-
-      console.log("data2", data2);
 
       agent_input = data;
+      parsed = data;
 
-      try {
-        parsed = JSON.parse(agent_input);
-        parsed2 = JSON.parse(data2);
-        parsed3 = JSON.parse(data3);
-
-      } catch (e) {
-        parsed = { error: "JSON parse error" };
-      }
-
-      //parsed = {...parsed, {snapshot:{refreshedAt:0}}};
-      parsed = { ...parsed, ...parsed2, ...parsed3, refreshedAt: utc };
+      parsed = { ...parsed, refreshedAt: utc };
 
       Object.keys(parsed).forEach((name) => {
-        if (["ping", "transducers", "cellular-modem"].includes(name)) {
+        if (
+          ["ping", "transducers", "cellular-modem", "snapshot"].includes(name)
+        ) {
           const elements = parsed[name];
 
           Object.keys(elements).forEach((elementText) => {
             const startTime = new Date();
 
-            const slug = (name + "-" + elementText).toLowerCase();
+            const uuid = "56f2dbb4-fde9-4f5c-89cf-35fb19494b8e";
+            const slug = (
+              "history" +
+              "-" +
+              uuid +
+              "-" +
+              name +
+              "-" +
+              elementText
+            ).toLowerCase();
             const key = slug;
 
             const value = elements[elementText];
-
+//thing-history-memcached-mongo            console.log("slug+line", slug + line);
             // Do Mongo write here
-            getHistory(slug+line)
+
+            getHistory(slug + line)
               .then((result) => {
-                const isValidHistory = Array.isArray(result.agent_input);
 
+//                console.log("result slug+line", slug + line, result);
+
+                var isValidHistory = false;
+                if (result && result.agent_input) {
+                  isValidHistory = Array.isArray(result.agent_input);
+                }
                 const event = { event: value, eventAt: getTimestamp() };
-                var items = [event];
-
+                //                var items = [event];
+                var items = [];
                 if (isValidHistory) {
                   items = result.agent_input;
-                  items.push(event);
                 }
-                const slicedItems = items.slice(-1 * historyWindowSize);
+                items.push(event);
 
-                setHistory(slug+line, slicedItems);
+                const slicedItems = items.slice(-1 * historyWindowSize);
+//                console.log("slicedItems", slicedItems);
+                setHistory(slug + line, slicedItems);
 
                 const runTime = new Date() - startTime;
                 console.info(
-                  slug,
+                  slug + line,
                   "processed in",
                   runTime,
                   "ms",
@@ -316,13 +324,10 @@ function handleLine(input) {
                   slicedItems.length,
                   "items."
                 );
-
-                //                setHistory(slug, slicedItems);
               })
               .catch((error) => {
-                console.log("did not get history", slug);
-                console.error(error);
-                setHistory(slug+line, value);
+                console.error("getHistory error", error);
+                setHistory(slug + line, value);
               });
           });
         }
@@ -332,7 +337,7 @@ function handleLine(input) {
       console.log("totalRunTime", totalRunTime, "ms");
     });
   } catch (err) {
-    console.log("Promise all erro", err);
+    console.log("Promise all error", err);
   }
 }
 
@@ -342,13 +347,17 @@ function getTimestamp() {
   return utc;
 }
 
-function getHistory(slug) {
+async function getHistory(slug) {
+  const thing = await collection.findOne({ subject: slug });
+  return thing;
+
   var parsed = "";
   //const snapshotPath = "/tmp/" + slug + ".json";
   const snapshotPath = keyPathname + slug + ".json";
   console.log("snapshotPath", snapshotPath);
 
   const p = new Promise((resolve, reject) => {
+    //    if (fileFlag === true) {
     fs.readFile(snapshotPath, "utf8", (err, data) => {
       //console.log("Reading file at " + snapshotPath + ".");
 
@@ -371,17 +380,43 @@ function getHistory(slug) {
 
         parsed = { ...parsed, refreshedAt: utc };
 
-        //console.log("getHistory slug parsed", slug, parsed);
         resolve(parsed);
       }
     });
+    //    }
+
+    if (urlFlag === false) {
+      console.log("URL");
+      const h =
+        "https://stackr.ca/snapshot/56f2dbb4-fde9-4f5c-89cf-35fb19494b8e/coop-temperature-humidity.json";
+      return axios
+        .get(h, {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+        .then((result) => {
+          console.log(result.data.thingReport);
+
+          var parsed = result.data.thingReport;
+          const timestamp = new Date();
+          const utc = timestamp.toUTCString();
+
+          parsed = { ...parsed, refreshedAt: utc };
+          resolve(parsed);
+        })
+        .catch((error) => {
+          console.log("Axios error", error);
+          reject(error);
+        });
+    }
   });
+  console.log("p", p);
   return p;
 }
 
 function setHistory(slug, history) {
-  //return true;
-
+  console.log("setHistory slug", slug);
   var arr = {
     from: from,
     to: to,
@@ -397,11 +432,27 @@ function setHistory(slug, history) {
     //    thingReport: { snapshot: parsed },
   });
 
-  fs.writeFile(keyPathname + slug + ".json", snapshot, "utf8", function (err) {
-    if (err) return console.log(err);
-    //console.log("Write file", slug, snapshot);
-    //console.log("Hello World > helloworld.txt");
-  });
+  if (true) {
+    fs.writeFile(
+      keyPathname + slug + ".json",
+      snapshot,
+      "utf8",
+      function (err) {
+        if (err) return console.log(err);
+      }
+    );
+  }
+  const event = new Date(Date.now());
+
+  // https://stackoverflow.com/questions/13808389/node-js-mongodb-upsert-update
+  // https://www.mongodb.com/docs/drivers/node/current/fundamentals/crud/write-operations/upsert/
+  const { insertedId } = collection.updateOne(
+    { subject: slug },
+    { $set: arr },
+    { upsert: true }
+  );
+
+  console.log("insertedId", insertedId);
 
   if (transport === "apache") {
     axios
@@ -483,4 +534,20 @@ function setHistory(slug, history) {
         Promise.resolve("ignore");
       });
   }
+}
+
+function readUrl(h) {
+  return axios
+    .get(h, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+    .then((result) => {
+      //console.log(result.data);
+      return result.data.thingReport;
+    })
+    .catch((error) => {
+      console.error("readUrl error", error);
+    });
 }

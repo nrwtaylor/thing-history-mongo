@@ -25,7 +25,7 @@ Description=Thing-History
 After=
 
 [Service]
-ExecStart=/var/www/thing-history/thing-history.js
+ExecStart=/var/www/thing-history-mongo/thing-history.js
 #Restart=on-failure
 Restart=on-failure
 RestartSec=10
@@ -34,7 +34,7 @@ User=nobody
 Group=nogroup
 Environment=PATH=/usr/bin:/usr/local/bin
 Environment=NODE_ENV=production
-WorkingDirectory=/var/www/thing-history
+WorkingDirectory=/var/www/thing-history-mongo
 
 [Install]
 WantedBy=multi-user.target

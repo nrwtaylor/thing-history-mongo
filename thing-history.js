@@ -50,12 +50,16 @@ var to = "history";
 const keyPathname = process.env.KEY_PATHNAME;
 const snapshotPathnames = process.env.SNAPSHOT_PATHNAMES.split(",");
 
+
+const x = readJsonFile("/home/nick/codebase/thing-history-mongo/snapshots.json");
+console.log("xxxx", x);
+
 the_interval = interval_milliseconds;
-the_interval_1 = 120000;
-the_interval_2 = 240000;
 
 const intervals = [
   { milliseconds: the_interval, text: "" },
+  { milliseconds: 10000, text: "10s", comment:"test" },
+  { milliseconds: 30000, text: "30s", comment:"test" },
   { milliseconds: 60000, text: "1m" },
   { milliseconds: 120000, text: "2m" },
   { milliseconds: 600000, text: "10m" },
@@ -64,180 +68,21 @@ const intervals = [
   { milliseconds: 3600000, text: "1h" },
 ];
 
-interval = setInterval(function () {
-  // do your stuff here
-  console.log("hosts", hosts);
+const  currentPollInterval = the_interval;
 
-  const promises = [];
 
-  hosts.map((h) => {
-    console.log("Interval: Process host " + host);
-    var host = h;
+function StartInterval(text, frequency) {
+    setInterval(function(){
+//        myfunction(index);
+handleLine(text);
+    },frequency);
+}
 
-    //    handleLine(null);
 
-    const q = handleLine(intervals[0].text);
-    promises.push(q);
+for(i=0;i<intervals.length;i++){
+    StartInterval(intervals[i].text, intervals[i].milliseconds)
+}
 
-    Promise.all(promises).then((values, index) => {
-      console.log(">>>>>>>>>>>>>>>>>.promises");
-      console.log(values);
-    });
-
-    //});
-  });
-  currentPollInterval = the_interval;
-}, intervals[0].milliseconds);
-
-interval1 = setInterval(function () {
-  // do your stuff here
-  console.log("hosts", hosts);
-
-  const promises = [];
-
-  hosts.map((h) => {
-    console.log("Interval: Process host " + host);
-    var host = h;
-
-    //    handleLine(null);
-
-    const q = handleLine(intervals[1].text);
-    promises.push(q);
-
-    Promise.all(promises).then((values, index) => {
-      console.log(">>>>>>>>>>>>>>>>>.promises");
-      console.log(values);
-    });
-
-    //});
-  });
-  currentPollInterval = the_interval;
-}, intervals[1].milliseconds);
-
-interval2 = setInterval(function () {
-  // do your stuff here
-  console.log("hosts", hosts);
-
-  const promises = [];
-
-  hosts.map((h) => {
-    console.log("Interval: Process host " + host);
-    var host = h;
-
-    //    handleLine(null);
-
-    const q = handleLine(intervals[2].text);
-    promises.push(q);
-
-    Promise.all(promises).then((values, index) => {
-      console.log(">>>>>>>>>>>>>>>>>.promises");
-      console.log(values);
-    });
-
-    //});
-  });
-  currentPollInterval = the_interval;
-}, intervals[2].milliseconds);
-
-interval3 = setInterval(function () {
-  // do your stuff here
-  console.log("hosts", hosts);
-
-  const promises = [];
-
-  hosts.map((h) => {
-    console.log("Interval: Process host " + host);
-    var host = h;
-
-    //    handleLine(null);
-
-    const q = handleLine(intervals[3].text);
-    promises.push(q);
-
-    Promise.all(promises).then((values, index) => {
-      console.log(">>>>>>>>>>>>>>>>>.promises");
-      console.log(values);
-    });
-
-    //});
-  });
-  currentPollInterval = the_interval;
-}, intervals[3].milliseconds);
-
-interval4 = setInterval(function () {
-  // do your stuff here
-  console.log("hosts", hosts);
-
-  const promises = [];
-
-  hosts.map((h) => {
-    console.log("Interval: Process host " + host);
-    var host = h;
-
-    //    handleLine(null);
-
-    const q = handleLine(intervals[4].text);
-    promises.push(q);
-
-    Promise.all(promises).then((values, index) => {
-      console.log(">>>>>>>>>>>>>>>>>.promises");
-      console.log(values);
-    });
-
-    //});
-  });
-  currentPollInterval = the_interval;
-}, intervals[4].milliseconds);
-
-interval5 = setInterval(function () {
-  // do your stuff here
-  console.log("hosts", hosts);
-
-  const promises = [];
-
-  hosts.map((h) => {
-    console.log("Interval: Process host " + host);
-    var host = h;
-
-    //    handleLine(null);
-
-    const q = handleLine(intervals[5].text);
-    promises.push(q);
-
-    Promise.all(promises).then((values, index) => {
-      console.log(">>>>>>>>>>>>>>>>>.promises");
-      console.log(values);
-    });
-
-    //});
-  });
-  currentPollInterval = the_interval;
-}, intervals[5].milliseconds);
-
-interval6 = setInterval(function () {
-  // do your stuff here
-  console.log("hosts", hosts);
-
-  const promises = [];
-
-  hosts.map((h) => {
-    console.log("Interval: Process host " + host);
-    var host = h;
-
-    //    handleLine(null);
-
-    const q = handleLine(intervals[6].text);
-    promises.push(q);
-
-    Promise.all(promises).then((values, index) => {
-      console.log(">>>>>>>>>>>>>>>>>.promises");
-      console.log(values);
-    });
-
-    //});
-  });
-  currentPollInterval = the_interval;
-}, intervals[6].milliseconds);
 
 function handleLine(input) {
   var agent_input = "snapshot";
@@ -256,13 +101,14 @@ function handleLine(input) {
       return readUrl(snapshotPathname);
     });
 
+
+
     const readStartTime = new Date();
     Promise.all(promiseArray).then((promises) => {
       const readRunTime = new Date() - readStartTime;
       console.log("Read file in", readRunTime, "ms.");
 
       const data = promises[0];
-
       agent_input = data;
       parsed = data;
 
@@ -536,6 +382,7 @@ function setHistory(slug, history) {
   }
 }
 
+// Consider caching of readUrl
 function readUrl(h) {
   return axios
     .get(h, {
@@ -550,4 +397,43 @@ function readUrl(h) {
     .catch((error) => {
       console.error("readUrl error", error);
     });
+}
+
+
+function readJsonFile(f) {
+
+console.log(f);
+
+    fs.readFile(f, "utf8", (err, data) => {
+      //console.log("Reading file at " + snapshotPath + ".");
+
+      if (err) {
+        agent_input = `Error reading file from disk: ${err}`;
+        console.log(agent_input);
+        reject({ error: agent_input });
+      } else {
+        agent_input = data;
+console.log(data);
+        try {
+          parsed = JSON.parse(agent_input);
+console.log(parsed);
+        } catch (e) {
+console.log(e);
+          parsed = { error: "JSON parse error" };
+//          reject(parsed);
+console.log(parsed);
+return true;
+        }
+
+        const timestamp = new Date();
+        const utc = timestamp.toUTCString();
+
+        parsed = { ...parsed, refreshedAt: utc };
+return parsed;
+//        resolve(parsed);
+      }
+    });
+
+
+
 }

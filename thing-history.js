@@ -9,34 +9,30 @@ const {
 
 const axios = require("axios");
 
-const express = require('express');
+const express = require("express");
 const app = express();
 
-app.get('/history/:slug.json', (req, res) => {
-const slug = req.params.slug;
+app.get("/history/:slug.json", (req, res) => {
+  const slug = req.params.slug;
 
-const text = "history-" + slug + "";
-console.log("text",text);
-const r = getHistory(text);
-console.log("r",r);
-r.then((result) =>{
-
-const t = {
-uuid:result.from,
-thing:{uuid:result.from, to:result.to,subject:result.subject},
-thingReport:{history:result.agent_input}}
+  const text = "history-" + slug + "";
+  console.log("text", text);
+  const r = getHistory(text);
+  console.log("r", r);
+  r.then((result) => {
+    const t = {
+      uuid: result.from,
+      thing: { uuid: result.from, to: result.to, subject: result.subject },
+      thingReport: { history: result.agent_input },
+    };
 
     res.send(t);
-}).catch((error)=>{
-
-
+  }).catch((error) => {});
 });
-});
-
 
 var port = process.env.PORT;
 
-app.listen(port, () => console.log('Listening on port ' + port));
+app.listen(port, () => console.log("Listening on port " + port));
 
 const datagrams = [{}];
 
@@ -85,9 +81,9 @@ const snapshotPathnames = readJsonFile(
 the_interval = interval_milliseconds;
 
 const intervals = [
-//  { milliseconds: the_interval, text: "" },
-//  { milliseconds: 10000, text: "10s", comment: "test" },
-//  { milliseconds: 30000, text: "30s", comment: "test" },
+  //  { milliseconds: the_interval, text: "" },
+  { milliseconds: 10000, text: "10s", comment: "test" },
+  //  { milliseconds: 30000, text: "30s", comment: "test" },
   { milliseconds: 60000, text: "1m" },
   { milliseconds: 120000, text: "2m" },
   { milliseconds: 600000, text: "10m" },
@@ -121,7 +117,6 @@ function handleLine(input, snapshotPathname) {
   const timestamp = new Date();
   const utc = timestamp.toISOString();
   try {
-
     const readStartTime = new Date();
 
     readUrl(snapshotPathname)
@@ -130,21 +125,81 @@ function handleLine(input, snapshotPathname) {
 
         console.log("Read file in", readRunTime, "ms.");
 
+        const uuid = extractUuid(snapshotPathname);
+
         agent_input = data;
         parsed = data;
 
         parsed = { ...parsed, refreshedAt: utc };
-
+        console.log("parsed", parsed);
         Object.keys(parsed).forEach((name) => {
           if (
             ["ping", "transducers", "cellular-modem", "snapshot"].includes(name)
           ) {
+            console.log("name", name);
+
             const elements = parsed[name];
 
             Object.keys(elements).forEach((elementText) => {
-              const startTime = new Date();
+              console.log("elementText", elementText);
+              //if (elementText === 'transducers') {console.log("asdffffffffffffffffffffffff");}
 
-              const uuid = extractUuid(snapshotPathname);
+              if (elementText === "transducers") {
+                Object.keys(elements[elementText]).forEach((subElementText) => {
+                  console.log("subElementText", subElementText);
+
+                  //              const startTime = new Date();
+
+                  //              const uuid = extractUuid(snapshotPathname);
+                  const slug = (
+                    "history" +
+                    "-" +
+                    uuid +
+                    "-" +
+                    name +
+                    "-" +
+                    elementText +
+                    "-" +
+                    subElementText
+                  ).toLowerCase();
+                  const key = slug;
+
+                  const value = elements[elementText][subElementText];
+                  // Do Mongo write here
+                  processHistory(slug, line, uuid, value);
+                });
+                return;
+              }
+
+              if (elementText === "ping") {
+                elements[elementText].map((subElement) => {
+                  console.log("subElement", subElement);
+
+                  const subElementText = getSlug(subElement["host"]);
+                  console.log("ping subElementText", subElementText);
+                  const slug = (
+                    "history" +
+                    "-" +
+                    uuid +
+                    "-" +
+                    name +
+                    "-" +
+                    elementText +
+                    "-" +
+                    subElementText
+                  ).toLowerCase();
+                  const key = slug;
+
+                  const value = subElement;
+                  // Do Mongo write here
+                  processHistory(slug, line, uuid, value);
+                });
+                return;
+              }
+
+              //              const startTime = new Date();
+
+              //              const uuid = extractUuid(snapshotPathname);
               const slug = (
                 "history" +
                 "-" +
@@ -154,11 +209,12 @@ function handleLine(input, snapshotPathname) {
                 "-" +
                 elementText
               ).toLowerCase();
-              const key = slug;
+              //              const key = slug;
 
               const value = elements[elementText];
               // Do Mongo write here
-
+              processHistory(slug, line, uuid, value);
+              /*
               getHistory(slug + line)
                 .then((result) => {
 
@@ -191,6 +247,7 @@ function handleLine(input, snapshotPathname) {
                   console.error("getHistory error", error);
                   setHistory(slug + line, value, uuid);
                 });
+*/
             });
           }
         });
@@ -234,7 +291,7 @@ function setHistory(slug, history, uuid) {
     ...arr,
   });
 
-  if (false) {
+  if (true) {
     fs.writeFile(
       keyPathname + slug + ".json",
       snapshot,
@@ -367,4 +424,65 @@ function extractUuids(input) {
   pattern = /[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}/g;
 
   return input.match(pattern);
+}
+
+function processHistory(slug, line, uuid, value) {
+  const startTime = new Date();
+  // Do Mongo write here
+
+  getHistory(slug + line)
+    .then((result) => {
+      var isValidHistory = false;
+      if (result && result.agent_input) {
+        isValidHistory = Array.isArray(result.agent_input);
+      }
+      const event = { event: value, eventAt: getTimestamp() };
+      var items = [];
+      if (isValidHistory) {
+        items = result.agent_input;
+      }
+      items.push(event);
+
+      const slicedItems = items.slice(-1 * historyWindowSize);
+      setHistory(slug + line, slicedItems, uuid);
+
+      const runTime = new Date() - startTime;
+      console.info(
+        slug + line,
+        "processed in",
+        runTime,
+        "ms",
+        "has",
+        slicedItems.length,
+        "items."
+      );
+    })
+    .catch((error) => {
+      console.error("getHistory error", error);
+      setHistory(slug + line, value, uuid);
+    });
+}
+
+function getSlug(text) {
+  if (text === undefined) {
+    return "";
+  }
+  if (text === null) {
+    return "";
+  }
+  console.log("getSlug text", text);
+  const rawSlug = text
+    .toLowerCase()
+    .replace(/\./g, " ")
+    .replace(/\+/g, " ")
+    .replace(/\-/g, " ")
+    .replace(/[^\w ]+/g, " ")
+    .replace(/ +/g, "-");
+
+  const first = rawSlug.charAt(0);
+  const last = rawSlug.charAt(rawSlug.length - 1);
+  var conditionedSlug = rawSlug;
+  conditionedSlug = conditionedSlug.replace(/-+$/, "");
+
+  return conditionedSlug;
 }
